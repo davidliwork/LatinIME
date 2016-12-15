@@ -1,0 +1,56 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 24
+    buildToolsVersion "24.0.1"
+
+    defaultConfig {
+        applicationId "com.android.inputmethod.latin"
+        minSdkVersion 14
+        targetSdkVersion 24
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError false
+    }
+    sourceSets {
+        main {
+            jni.srcDirs = []//设置禁止gradle生成Android.mk
+            jniLibs.srcDirs = ['src/main/jniLibs']//设置目标的so存放路径
+        }
+    }
+    tasks.withType(JavaCompile) {
+        compileTask -> compileTask.dependsOn 'ndkBuild', 'copyJniLibs'
+    }
+}
+
+task ndkBuild(type: Exec) {
+    def ndkDir = project.plugins.findPlugin('com.android.application').sdkHandler.getNdkFolder()
+    commandLine "$ndkDir/ndk-build.cmd", '-C', 'src/main/jni',
+            "NDK_OUT=$buildDir/intermediates/ndk/obj",
+            "NDK_APP_DST_DIR=$buildDir/intermediates/ndk/libs/\$(TARGET_ARCH_ABI)"
+}
+
+task copyThirdso(type: Copy) {//将第三方的so拷贝到jniLibs目录
+    from file('src/main/jni/vvw/libs')
+    into file('src/main/jniLibs')
+}
+
+task copyJniLibs(type: Copy) {//将新生成的so拷贝到jniLibs目录
+    from fileTree(dir: file(buildDir.absolutePath + '/intermediates/ndk/libs'), include: '**/*.so')
+    into file('src/main/jniLibs')
+}
+
+dependencies {
+    compile fileTree(include: ['*.jar'], dir: 'libs')
+    testCompile 'junit:junit:4.12'
+    compile 'com.android.support:appcompat-v7:24.2.0'
+    compile project(':common')
+}
